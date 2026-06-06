@@ -1,19 +1,19 @@
-name: CI - MLflow Re-Training
+name: CI - MLflow Re-Training + Docker Build
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'MLProject/**'         # trigger jika ada perubahan di folder MLProject
-  workflow_dispatch:           # bisa dijalankan manual dari GitHub Actions tab
+      - 'MLProject/**'
+  workflow_dispatch:
     inputs:
       n_estimators:
         description: 'Jumlah pohon (n_estimators)'
         required: false
         default: '100'
       max_depth:
-        description: 'Kedalaman pohon (0 = None / tidak dibatasi)'
+        description: 'Kedalaman pohon (0 = None)'
         required: false
         default: '0'
       random_state:
@@ -26,56 +26,105 @@ on:
         default: 'balanced'
 
 jobs:
-  train:
+  train-and-build:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      # ── 1. Checkout repository ──────────────────────────────
+      # 1. Checkout
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ── 2. Setup Python ─────────────────────────────────────
+      # 2. Setup Python
       - name: Setup Python 3.9
         uses: actions/setup-python@v5
         with:
           python-version: '3.9'
 
-      # ── 3. Install semua dependencies ────────────────────────
+      # 3. Install dependencies
       - name: Install dependencies
         run: |
           pip install pandas numpy scikit-learn mlflow matplotlib seaborn
 
-      # ── 4. Jalankan MLflow Project ───────────────────────────
+      # 4. Jalankan MLflow Project
+      #    FIX: tambahkan --experiment-name agar
+      #    run dibuat di experiment yang benar
       - name: Run MLflow Project
         env:
-          # Simpan mlflow.db di workspace agar hasil tidak hilang
           MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
         run: |
           mlflow run MLProject \
             --env-manager=local \
+            --experiment-name "Stroke_Classification_Basic" \
             -P n_estimators=${{ github.event.inputs.n_estimators || '100' }} \
             -P max_depth=${{ github.event.inputs.max_depth || '0' }} \
             -P random_state=${{ github.event.inputs.random_state || '42' }} \
             -P class_weight=${{ github.event.inputs.class_weight || 'balanced' }}
 
-      # ── 5. Verifikasi output ─────────────────────────────────
-      - name: Verify output
+      # 5. Ambil Run ID
+      - name: Get MLflow Run ID
+        id: get_run_id
+        run: |
+          RUN_ID=$(cat MLProject/run_id.txt)
+          echo "run_id=$RUN_ID" >> $GITHUB_OUTPUT
+          echo "[INFO] Run ID : $RUN_ID"
+
+      # 6. Verifikasi output
+      - name: Verify training output
         run: |
           echo "===== Isi folder MLProject ====="
           ls -la MLProject/
-          echo ""
-          if [ -f MLProject/mlflow.db ]; then
-            echo "mlflow.db berhasil dibuat!"
-            echo "Ukuran file: $(du -sh MLProject/mlflow.db | cut -f1)"
-          else
-            echo "mlflow.db tidak ditemukan."
-          fi
+          echo "Run ID  : $(cat MLProject/run_id.txt)"
+          echo "DB size : $(du -sh MLProject/mlflow.db | cut -f1)"
 
-      # ── 6. Commit & push hasil training ─────────────────────
-      - name: Commit MLflow results
+      # 7. Login ke Docker Hub
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 8. Build Docker Image
+      - name: Build Docker Image
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
+        run: |
+          mlflow models build-docker \
+            --model-uri "runs:/${{ steps.get_run_id.outputs.run_id }}/model" \
+            --name "${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
+
+      # 9. Push ke Docker Hub
+      - name: Push Docker Image to Docker Hub
+        run: |
+          docker tag \
+            ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest \
+            ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
+
+      # 10. Update tautan_ke_dockerhub.txt
+      - name: Update Docker Hub link file
+        run: |
+          echo "https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification" \
+            > MLProject/tautan_ke_dockerhub.txt
+          cat MLProject/tautan_ke_dockerhub.txt
+
+      # 11. Update mlruns_fresh
+      - name: Update mlruns_fresh folder
+        run: |
+          mkdir -p MLProject/mlruns_fresh
+          echo "Run ID  : $(cat MLProject/run_id.txt)" > MLProject/mlruns_fresh/latest_run.txt
+          echo "Commit  : ${{ github.sha }}"          >> MLProject/mlruns_fresh/latest_run.txt
+          echo "Trigger : ${{ github.event_name }}"   >> MLProject/mlruns_fresh/latest_run.txt
+
+      # 12. Commit semua artifact ke GitHub
+      - name: Commit artifacts to GitHub
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "CI - re-training selesai [n_estimators=${{ github.event.inputs.n_estimators || '100' }}, max_depth=${{ github.event.inputs.max_depth || '0' }}]"
-          file_pattern: 'MLProject/mlflow.db'
+          commit_message: "CI - training selesai | Docker pushed | run=${{ steps.get_run_id.outputs.run_id }}"
+          file_pattern: |
+            MLProject/mlflow.db
+            MLProject/run_id.txt
+            MLProject/tautan_ke_dockerhub.txt
+            MLProject/mlruns_fresh/**

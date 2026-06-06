@@ -9,7 +9,6 @@ Target          : stroke  (0 = tidak stroke, 1 = stroke)
 """
 
 import os
-import re
 import argparse
 import pandas as pd
 import numpy as np
@@ -51,12 +50,24 @@ print("=" * 55)
 
 # ─────────────────────────────────────────────
 # 2. KONFIGURASI MLflow
+#
+#    PENTING: Ketika dijalankan via `mlflow run`,
+#    env var MLFLOW_RUN_ID sudah di-set otomatis.
+#    Jangan panggil set_experiment() karena akan
+#    menyebabkan mismatch experiment ID.
+#    Panggil set_experiment() HANYA saat lokal.
 # ─────────────────────────────────────────────
-EXPERIMENT_NAME = "Stroke_Classification_Basic"
-TRACKING_URI    = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+EXPERIMENT_NAME  = "Stroke_Classification_Basic"
+TRACKING_URI     = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+IS_MLFLOW_RUN    = os.environ.get("MLFLOW_RUN_ID") is not None   # True jika via mlflow run
+
 mlflow.set_tracking_uri(TRACKING_URI)
-mlflow.set_experiment(EXPERIMENT_NAME)
 print(f"\n[INFO] Tracking URI : {TRACKING_URI}")
+print(f"[INFO] Mode         : {'mlflow run (CI)' if IS_MLFLOW_RUN else 'direct (lokal)'}")
+
+# set_experiment hanya kalau dijalankan langsung (bukan via mlflow run)
+if not IS_MLFLOW_RUN:
+    mlflow.set_experiment(EXPERIMENT_NAME)
 
 # ─────────────────────────────────────────────
 # 3. LOAD DATASET
@@ -128,11 +139,10 @@ print(f"\n[INFO] Train : {X_train.shape[0]} | Test : {X_test.shape[0]}")
 # ─────────────────────────────────────────────
 # 7. TRAINING + MLflow LOGGING
 #
-#    FIX: Ketika dijalankan via `mlflow run`, MLflow
-#    sudah membuat run dan menyimpan ID-nya di env var
-#    MLFLOW_RUN_ID. Kita pakai run itu, bukan buat baru.
-#    Kalau dijalankan langsung (py modelling.py),
-#    buat run baru seperti biasa.
+#    FIX UTAMA:
+#    - Jangan pass run_id ke start_run()
+#    - MLflow otomatis baca MLFLOW_RUN_ID dari env
+#    - Kalau tidak ada MLFLOW_RUN_ID, buat run baru
 # ─────────────────────────────────────────────
 mlflow.sklearn.autolog(
     log_input_examples=True,
@@ -141,22 +151,13 @@ mlflow.sklearn.autolog(
     silent=False,
 )
 
-# Cek apakah sudah ada run aktif dari `mlflow run`
-existing_run_id = os.environ.get("MLFLOW_RUN_ID")
+# TIDAK pass run_id — MLflow auto-deteksi MLFLOW_RUN_ID dari env var
+run_name = None if IS_MLFLOW_RUN else "RandomForest_Stroke_Basic"
 
-if existing_run_id:
-    # Dijalankan via `mlflow run` (CI/CD) — gunakan run yang sudah ada
-    print(f"\n[INFO] Mode : mlflow run (CI)")
-    print(f"[INFO] Menggunakan Run ID : {existing_run_id}")
-    run_context = mlflow.start_run(run_id=existing_run_id)
-else:
-    # Dijalankan langsung — buat run baru
-    print(f"\n[INFO] Mode : direct (lokal)")
-    run_context = mlflow.start_run(run_name="RandomForest_Stroke_Basic")
+with mlflow.start_run(run_name=run_name) as run:
 
-with run_context as run:
     RUN_ID = run.info.run_id
-    print(f"[MLflow] Run ID     : {RUN_ID}")
+    print(f"\n[MLflow] Run ID     : {RUN_ID}")
     print(f"[MLflow] Experiment : {EXPERIMENT_NAME}")
     print("[MLflow] Training dimulai...\n")
 
