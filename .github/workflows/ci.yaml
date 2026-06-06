@@ -48,8 +48,6 @@ jobs:
           pip install pandas numpy scikit-learn mlflow matplotlib seaborn
 
       # 4. Jalankan MLflow Project
-      #    FIX: tambahkan --experiment-name agar
-      #    run dibuat di experiment yang benar
       - name: Run MLflow Project
         env:
           MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
@@ -86,13 +84,27 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # 8. Build Docker Image
+      #    FIX: Gunakan generate-dockerfile lalu docker build
+      #    (mlflow models build-docker butuh conda yang tidak tersedia di runner)
       - name: Build Docker Image
         env:
           MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
         run: |
-          mlflow models build-docker \
-            --model-uri "runs:/${{ steps.get_run_id.outputs.run_id }}/model" \
-            --name "${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
+          RUN_ID=$(cat MLProject/run_id.txt)
+          echo "[INFO] Building Docker image for run: $RUN_ID"
+
+          # Generate Dockerfile dari model MLflow
+          mlflow models generate-dockerfile \
+            --model-uri "runs:/${RUN_ID}/model" \
+            --output-directory mlflow_docker_build
+
+          echo "===== Isi folder mlflow_docker_build ====="
+          ls -la mlflow_docker_build/
+
+          # Build image dari Dockerfile yang sudah di-generate
+          docker build \
+            -t ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest \
+            mlflow_docker_build
 
       # 9. Push ke Docker Hub
       - name: Push Docker Image to Docker Hub

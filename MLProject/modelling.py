@@ -144,10 +144,11 @@ print(f"\n[INFO] Train : {X_train.shape[0]} | Test : {X_test.shape[0]}")
 #    - MLflow otomatis baca MLFLOW_RUN_ID dari env
 #    - Kalau tidak ada MLFLOW_RUN_ID, buat run baru
 # ─────────────────────────────────────────────
+# MATIKAN autolog agar tidak bentrok dengan log_model eksplisit di bawah
 mlflow.sklearn.autolog(
     log_input_examples=True,
     log_model_signatures=True,
-    log_models=True,
+    log_models=False,   # FIX: set False agar model hanya dilog sekali (eksplisit)
     silent=False,
 )
 
@@ -202,6 +203,21 @@ with mlflow.start_run(run_name=run_name) as run:
     print("  Feature Importances (Top 5) :")
     print(importances.sort_values(ascending=False).head(5).to_string())
     print("=" * 55)
+
+    # ─────────────────────────────────────────────
+    # FIX: Log model secara EKSPLISIT dengan artifact_path="model"
+    # Ini memastikan model bisa diakses via "runs:/<run_id>/model"
+    # yang dibutuhkan oleh mlflow models generate-dockerfile
+    # ─────────────────────────────────────────────
+    from mlflow.models import infer_signature
+    signature = infer_signature(X_train, model.predict(X_train))
+    mlflow.sklearn.log_model(
+        sk_model=model,
+        artifact_path="model",
+        signature=signature,
+        input_example=X_train.iloc[:5],
+    )
+    print("[MLflow] Model di-log ke artifact path: 'model'")
 
 # ─────────────────────────────────────────────
 # 8. SIMPAN RUN_ID KE FILE
