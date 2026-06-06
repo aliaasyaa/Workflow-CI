@@ -1,0 +1,81 @@
+name: CI - MLflow Re-Training
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'MLProject/**'         # trigger jika ada perubahan di folder MLProject
+  workflow_dispatch:           # bisa dijalankan manual dari GitHub Actions tab
+    inputs:
+      n_estimators:
+        description: 'Jumlah pohon (n_estimators)'
+        required: false
+        default: '100'
+      max_depth:
+        description: 'Kedalaman pohon (0 = None / tidak dibatasi)'
+        required: false
+        default: '0'
+      random_state:
+        description: 'Random state'
+        required: false
+        default: '42'
+      class_weight:
+        description: 'class_weight (balanced / balanced_subsample)'
+        required: false
+        default: 'balanced'
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # ── 1. Checkout repository ──────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Setup Python ─────────────────────────────────────
+      - name: Setup Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # ── 3. Install semua dependencies ────────────────────────
+      - name: Install dependencies
+        run: |
+          pip install pandas numpy scikit-learn mlflow matplotlib seaborn
+
+      # ── 4. Jalankan MLflow Project ───────────────────────────
+      - name: Run MLflow Project
+        env:
+          # Simpan mlflow.db di workspace agar hasil tidak hilang
+          MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
+        run: |
+          mlflow run MLProject \
+            --env-manager=local \
+            -P n_estimators=${{ github.event.inputs.n_estimators || '100' }} \
+            -P max_depth=${{ github.event.inputs.max_depth || '0' }} \
+            -P random_state=${{ github.event.inputs.random_state || '42' }} \
+            -P class_weight=${{ github.event.inputs.class_weight || 'balanced' }}
+
+      # ── 5. Verifikasi output ─────────────────────────────────
+      - name: Verify output
+        run: |
+          echo "===== Isi folder MLProject ====="
+          ls -la MLProject/
+          echo ""
+          if [ -f MLProject/mlflow.db ]; then
+            echo "mlflow.db berhasil dibuat!"
+            echo "Ukuran file: $(du -sh MLProject/mlflow.db | cut -f1)"
+          else
+            echo "mlflow.db tidak ditemukan."
+          fi
+
+      # ── 6. Commit & push hasil training ─────────────────────
+      - name: Commit MLflow results
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "CI - re-training selesai [n_estimators=${{ github.event.inputs.n_estimators || '100' }}, max_depth=${{ github.event.inputs.max_depth || '0' }}]"
+          file_pattern: 'MLProject/mlflow.db'

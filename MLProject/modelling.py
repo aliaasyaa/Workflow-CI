@@ -54,7 +54,8 @@ print("=" * 55)
 # 2. KONFIGURASI MLflow
 # ─────────────────────────────────────────────
 EXPERIMENT_NAME = "Stroke_Classification_Basic"
-mlflow.set_tracking_uri("sqlite:///mlflow.db")
+TRACKING_URI = os.environ.get("MLFLOW_TRACKING_URI", "sqlite:///mlflow.db")
+mlflow.set_tracking_uri(TRACKING_URI)
 mlflow.set_experiment(EXPERIMENT_NAME)
 
 # ─────────────────────────────────────────────
