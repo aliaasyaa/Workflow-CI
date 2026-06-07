@@ -83,28 +83,58 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 8. Build Docker Image
-      #    FIX: Gunakan generate-dockerfile lalu docker build
-      #    (mlflow models build-docker butuh conda yang tidak tersedia di runner)
-      - name: Build Docker Image
+      # 8. Download model artifacts & buat Dockerfile manual
+      #    FIX: Hindari mlflow generate-dockerfile yang gagal karena
+      #    conda dependency conflict. Gunakan custom Dockerfile saja.
+      - name: Export model & Build Docker Image
         env:
           MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
         run: |
           RUN_ID=$(cat MLProject/run_id.txt)
-          echo "[INFO] Building Docker image for run: $RUN_ID"
+          echo "[INFO] Downloading model artifacts for run: $RUN_ID"
 
-          # Generate Dockerfile dari model MLflow
-          mlflow models generate-dockerfile \
-            --model-uri "runs:/${RUN_ID}/model" \
-            --output-directory mlflow_docker_build
+          # Download model artifacts ke folder lokal
+          mlflow artifacts download \
+            --artifact-uri "runs:/${RUN_ID}/model" \
+            --dst-path ./model_export
 
-          echo "===== Isi folder mlflow_docker_build ====="
-          ls -la mlflow_docker_build/
+          echo "===== Isi model_export ====="
+          ls -la ./model_export/
 
-          # Build image dari Dockerfile yang sudah di-generate
+          # Buat Dockerfile sederhana tanpa conda
+          cat > Dockerfile << 'DOCKERFILE'
+FROM python:3.9-slim
+
+WORKDIR /app
+
+# Install dependencies langsung (tanpa conda)
+RUN pip install --no-cache-dir \
+    mlflow \
+    scikit-learn \
+    pandas \
+    numpy
+
+# Salin model artifacts
+COPY model_export /app/model
+
+# Expose port untuk serving
+EXPOSE 5000
+
+# Serve model saat container jalan
+CMD ["mlflow", "models", "serve", \
+     "--model-uri", "/app/model", \
+     "--host", "0.0.0.0", \
+     "--port", "5000", \
+     "--env-manager", "local"]
+DOCKERFILE
+
+          echo "===== Dockerfile ====="
+          cat Dockerfile
+
+          # Build Docker image
           docker build \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest \
-            mlflow_docker_build
+            .
 
       # 9. Push ke Docker Hub
       - name: Push Docker Image to Docker Hub
@@ -114,12 +144,15 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
+          echo "[INFO] Docker image berhasil di-push!"
+          echo "Link: https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
 
       # 10. Update tautan_ke_dockerhub.txt
       - name: Update Docker Hub link file
         run: |
           echo "https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification" \
             > MLProject/tautan_ke_dockerhub.txt
+          echo "[INFO] Docker Hub link:"
           cat MLProject/tautan_ke_dockerhub.txt
 
       # 11. Update mlruns_fresh
@@ -129,6 +162,8 @@ jobs:
           echo "Run ID  : $(cat MLProject/run_id.txt)" > MLProject/mlruns_fresh/latest_run.txt
           echo "Commit  : ${{ github.sha }}"          >> MLProject/mlruns_fresh/latest_run.txt
           echo "Trigger : ${{ github.event_name }}"   >> MLProject/mlruns_fresh/latest_run.txt
+          echo "Image   : ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest" \
+                                                      >> MLProject/mlruns_fresh/latest_run.txt
 
       # 12. Commit semua artifact ke GitHub
       - name: Commit artifacts to GitHub
