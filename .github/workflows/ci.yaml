@@ -83,58 +83,27 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      # 8. Download model artifacts & buat Dockerfile manual
-      #    FIX: Hindari mlflow generate-dockerfile yang gagal karena
-      #    conda dependency conflict. Gunakan custom Dockerfile saja.
-      - name: Export model & Build Docker Image
+      # 8. Download model & Build Docker Image
+      #    FIX: Pakai Dockerfile dari repo (bukan generate dari mlflow)
+      #    Hindari heredoc di YAML dan conda conflict
+      - name: Export model artifacts
         env:
           MLFLOW_TRACKING_URI: sqlite:///${{ github.workspace }}/MLProject/mlflow.db
         run: |
           RUN_ID=$(cat MLProject/run_id.txt)
           echo "[INFO] Downloading model artifacts for run: $RUN_ID"
-
-          # Download model artifacts ke folder lokal
           mlflow artifacts download \
             --artifact-uri "runs:/${RUN_ID}/model" \
             --dst-path ./model_export
-
           echo "===== Isi model_export ====="
           ls -la ./model_export/
 
-          # Buat Dockerfile sederhana tanpa conda
-          cat > Dockerfile << 'DOCKERFILE'
-FROM python:3.9-slim
-
-WORKDIR /app
-
-# Install dependencies langsung (tanpa conda)
-RUN pip install --no-cache-dir \
-    mlflow \
-    scikit-learn \
-    pandas \
-    numpy
-
-# Salin model artifacts
-COPY model_export /app/model
-
-# Expose port untuk serving
-EXPOSE 5000
-
-# Serve model saat container jalan
-CMD ["mlflow", "models", "serve", \
-     "--model-uri", "/app/model", \
-     "--host", "0.0.0.0", \
-     "--port", "5000", \
-     "--env-manager", "local"]
-DOCKERFILE
-
-          echo "===== Dockerfile ====="
-          cat Dockerfile
-
-          # Build Docker image
+      - name: Build Docker Image
+        run: |
           docker build \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest \
             .
+          echo "[INFO] Docker image built successfully"
 
       # 9. Push ke Docker Hub
       - name: Push Docker Image to Docker Hub
@@ -144,7 +113,7 @@ DOCKERFILE
             ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:latest
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification:${{ github.sha }}
-          echo "[INFO] Docker image berhasil di-push!"
+          echo "[INFO] Image pushed!"
           echo "Link: https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
 
       # 10. Update tautan_ke_dockerhub.txt
@@ -152,7 +121,6 @@ DOCKERFILE
         run: |
           echo "https://hub.docker.com/r/${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification" \
             > MLProject/tautan_ke_dockerhub.txt
-          echo "[INFO] Docker Hub link:"
           cat MLProject/tautan_ke_dockerhub.txt
 
       # 11. Update mlruns_fresh
