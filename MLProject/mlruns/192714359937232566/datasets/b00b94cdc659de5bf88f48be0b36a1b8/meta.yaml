@@ -1,0 +1,15 @@
+digest: 70987d07
+name: dataset
+profile: '{"num_rows": 4088, "num_elements": 44968}'
+schema: '{"mlflow_colspec": [{"type": "double", "name": "gender", "required": true},
+  {"type": "double", "name": "age", "required": true}, {"type": "double", "name":
+  "hypertension", "required": true}, {"type": "double", "name": "heart_disease", "required":
+  true}, {"type": "double", "name": "ever_married", "required": true}, {"type": "double",
+  "name": "work_type", "required": true}, {"type": "double", "name": "Residence_type",
+  "required": true}, {"type": "double", "name": "avg_glucose_level", "required": true},
+  {"type": "double", "name": "bmi", "required": true}, {"type": "double", "name":
+  "smoking_status", "required": true}, {"type": "double", "name": "age_group", "required":
+  true}]}'
+source: '{"tags": {"mlflow.user": "runner", "mlflow.source.name": "modelling.py",
+  "mlflow.source.type": "LOCAL", "mlflow.source.git.commit": "b64d839640a4e9e015e08799f8287cec71ebb34c"}}'
+source_type: code
