@@ -41,8 +41,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install mlflow scikit-learn pandas numpy matplotlib seaborn
 
-      # ── 4. Jalankan MLflow Project ───────────────────────────
+       # ── 4. Jalankan MLflow Project ───────────────────────────
       - name: Run MLflow Project
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///./mlruns/mlflow.db
         run: |
           cd MLProject
           mlflow run . \
@@ -51,6 +53,8 @@ jobs:
 
       # ── 5. Ambil Run ID terbaru ───────────────────────────────
       - name: Get latest Run ID
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///./mlruns/mlflow.db
         run: |
           RUN_ID=$(cd MLProject && python3 -c "
           import mlflow
