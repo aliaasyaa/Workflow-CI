@@ -1,0 +1,14 @@
+artifact_uri: file:///home/runner/work/Workflow-CI/Workflow-CI/MLProject/mlruns/192714359937232566/93c4e476b2414ff18753d91ab18d6003/artifacts
+end_time: 1780942551097
+entry_point_name: ''
+experiment_id: '192714359937232566'
+lifecycle_stage: active
+run_id: 93c4e476b2414ff18753d91ab18d6003
+run_name: useful-moose-688
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780942545086
+status: 3
+tags: []
+user_id: runner
