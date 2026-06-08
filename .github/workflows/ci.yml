@@ -100,6 +100,7 @@ jobs:
           mlflow models build-docker \
             --model-uri "runs:/${{ env.RUN_ID }}/model" \
             --name "$IMAGE_NAME"
+            --env-manager local
 
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "Build selesai: $IMAGE_NAME"
