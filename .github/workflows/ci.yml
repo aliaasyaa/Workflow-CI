@@ -96,19 +96,21 @@ jobs:
 
       # ── 9. Build Docker image dengan mlflow build-docker ─────
       - name: Build Docker image using mlflow build-docker
+        env:
+          MLFLOW_TRACKING_URI: sqlite:///./mlruns/mlflow.db
         run: |
           cd MLProject
           IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
           echo "Building image: $IMAGE_NAME"
-
+      
           mlflow models build-docker \
             --model-uri "runs:/${{ env.RUN_ID }}/model" \
             --name "$IMAGE_NAME" \
             --env-manager local
-
+      
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "Build selesai: $IMAGE_NAME"
-
+          
       # ── 10. Push Docker image ke Docker Hub ───────────────────
       - name: Push Docker image to Docker Hub
         run: |
