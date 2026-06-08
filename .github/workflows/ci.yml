@@ -75,7 +75,6 @@ jobs:
           git config user.name  "github-actions[bot]"
           git add MLProject/mlruns/
           git add MLProject/run_id.txt
-          # ✅ FIX: tambah || sebelum git commit
           git diff --staged --quiet \
             || git commit -m "ci: update model artifacts [skip ci]"
           git push
@@ -90,22 +89,19 @@ jobs:
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
-      
-          # ── 9. Build Docker image using mlflow build-docker ─────
+
+      # ── 9. Build Docker image dengan mlflow build-docker ─────
       - name: Build Docker image using mlflow build-docker
         run: |
           cd MLProject
           IMAGE_NAME="${{ secrets.DOCKERHUB_USERNAME }}/stroke-classification"
           echo "Building image: $IMAGE_NAME"
-      
-          # Set base image with build tools
-          export MLFLOW_DOCKER_DEFAULT_BASE_IMAGE="python:3.9-slim"
-      
+
           mlflow models build-docker \
             --model-uri "runs:/${{ env.RUN_ID }}/model" \
             --name "$IMAGE_NAME" \
             --env-manager local
-      
+
           echo "IMAGE_NAME=$IMAGE_NAME" >> $GITHUB_ENV
           echo "Build selesai: $IMAGE_NAME"
 
