@@ -1,0 +1,41 @@
+artifact_path: /home/runner/work/Workflow-CI/Workflow-CI/MLProject/mlruns/1/models/m-b2ff53305a7f4788825984d0a277e697/artifacts
+flavors:
+  python_function:
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.sklearn
+    model_path: model.pkl
+    predict_fn: predict
+    python_version: 3.11.15
+  sklearn:
+    code: null
+    pickled_model: model.pkl
+    serialization_format: cloudpickle
+    sklearn_version: 1.9.0
+    skops_trusted_types: null
+is_signature_from_type_hint: false
+mlflow_version: 3.13.0
+model_id: m-b2ff53305a7f4788825984d0a277e697
+model_size_bytes: 6430778
+model_uuid: m-b2ff53305a7f4788825984d0a277e697
+prompts: null
+run_id: 9640fb80c9a94727826b2841309fa7eb
+saved_input_example_info:
+  artifact_path: input_example.json
+  pandas_orient: split
+  serving_input_path: serving_input_example.json
+  type: dataframe
+signature:
+  inputs: '[{"type": "double", "name": "gender", "required": true}, {"type": "double",
+    "name": "age", "required": true}, {"type": "double", "name": "hypertension", "required":
+    true}, {"type": "double", "name": "heart_disease", "required": true}, {"type":
+    "double", "name": "ever_married", "required": true}, {"type": "double", "name":
+    "work_type", "required": true}, {"type": "double", "name": "Residence_type", "required":
+    true}, {"type": "double", "name": "avg_glucose_level", "required": true}, {"type":
+    "double", "name": "bmi", "required": true}, {"type": "double", "name": "smoking_status",
+    "required": true}, {"type": "double", "name": "age_group", "required": true}]'
+  outputs: '[{"type": "tensor", "tensor-spec": {"dtype": "int64", "shape": [-1]}}]'
+  params: null
+type_hint_from_example: false
+utc_time_created: '2026-06-08 17:54:13.104419'
