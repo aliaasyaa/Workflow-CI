@@ -1,0 +1,14 @@
+artifact_uri: file:///home/runner/work/Workflow-CI/Workflow-CI/MLProject/mlruns/192714359937232566/ff2b96f0c42a49d5aae0d50b83b602c9/artifacts
+end_time: 1780942767466
+entry_point_name: ''
+experiment_id: '192714359937232566'
+lifecycle_stage: active
+run_id: ff2b96f0c42a49d5aae0d50b83b602c9
+run_name: funny-tern-539
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1780942762005
+status: 3
+tags: []
+user_id: runner
